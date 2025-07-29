@@ -4,7 +4,7 @@ def fetch_job_emails():
     results = service.users().messages().list(
         userId='me',
         q="subject:job application OR subject:job applied",
-        maxResults=90
+        maxResults=50
     ).execute()
     messages = results.get('messages', [])
 
