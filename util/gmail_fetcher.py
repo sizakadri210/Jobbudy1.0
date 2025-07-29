@@ -1,55 +1,44 @@
-import os.path
-import base64
-import re
-from email import message_from_bytes
-from google.auth.transport.requests import Request
+import streamlit as st
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-# Gmail API scope
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-def authenticate_gmail():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If no valid token, authenticate
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save token for future use
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    return build('gmail', 'v1', credentials=creds)
+def get_gmail_service():
+    creds = Credentials(
+        token=None,
+        refresh_token=st.secrets["gmail"]["refresh_token"],
+        client_id=st.secrets["gmail"]["client_id"],
+        client_secret=st.secrets["gmail"]["client_secret"],
+        token_uri='https://oauth2.googleapis.com/token',
+        scopes=SCOPES
+    )
+    creds.refresh(Request())
+    service = build('gmail', 'v1', credentials=creds)
+    return service
 
 def fetch_job_emails():
-    service = authenticate_gmail()
-    results = service.users().messages().list(userId='me', q="subject:application OR subject:applied", maxResults=50).execute()
+    service = get_gmail_service()
+    results = service.users().messages().list(userId='me', maxResults=50).execute()
     messages = results.get('messages', [])
 
-    job_data = []
+    emails = []
+
     for msg in messages:
-        msg_detail = service.users().messages().get(userId='me', id=msg['id']).execute()
-        payload = msg_detail['payload']
-        headers = payload.get("headers", [])
+        msg_data = service.users().messages().get(userId='me', id=msg['id'], format='metadata', metadataHeaders=['Date', 'Subject', 'From']).execute()
+        headers = msg_data.get('payload', {}).get('headers', [])
+        email_info = {'Date': None, 'Subject': None, 'From': None}
 
-        subject = sender = date = None
-        for d in headers:
-            if d['name'] == 'Subject':
-                subject = d['value']
-            elif d['name'] == 'From':
-                sender = d['value']
-            elif d['name'] == 'Date':
-                date = d['value']
+        for header in headers:
+            name = header.get('name', '').lower()
+            if name == 'date':
+                email_info['Date'] = header.get('value')
+            elif name == 'subject':
+                email_info['Subject'] = header.get('value')
+            elif name == 'from':
+                email_info['From'] = header.get('value')
 
-        job_data.append({
-            'Subject': subject,
-            'From': sender,
-            'Date': date
-        })
-    return job_data
+        emails.append(email_info)
+
+    return emails
