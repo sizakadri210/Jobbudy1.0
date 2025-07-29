@@ -1,13 +1,34 @@
+import streamlit as st
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+
+# Gmail API scope
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+# ✅ Step 1: Authenticate using Streamlit secrets
+def get_gmail_service():
+    creds = Credentials(
+        token=None,
+        refresh_token=st.secrets["gmail"]["refresh_token"],
+        client_id=st.secrets["gmail"]["client_id"],
+        client_secret=st.secrets["gmail"]["client_secret"],
+        token_uri='https://oauth2.googleapis.com/token',
+        scopes=SCOPES
+    )
+    creds.refresh(Request())
+    return build('gmail', 'v1', credentials=creds)
+
+# ✅ Step 2: Fetch job-related emails
 def fetch_job_emails():
     service = get_gmail_service()
-    # ✅ Filter only application-related emails
     results = service.users().messages().list(
         userId='me',
-        q="subject:job application OR subject:job applied",
+        q="subject:application OR subject:applied",  # <- Keeps results job-related
         maxResults=50
     ).execute()
-    messages = results.get('messages', [])
 
+    messages = results.get('messages', [])
     emails = []
 
     for msg in messages:
@@ -17,6 +38,7 @@ def fetch_job_emails():
             format='metadata',
             metadataHeaders=['Date', 'Subject', 'From']
         ).execute()
+
         headers = msg_data.get('payload', {}).get('headers', [])
         email_info = {'Date': None, 'Subject': None, 'From': None}
 
@@ -32,4 +54,3 @@ def fetch_job_emails():
         emails.append(email_info)
 
     return emails
-
