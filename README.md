@@ -17,7 +17,8 @@ JobBuddy 1.0 is a personal assistant that helps you track your job applications 
 
 ## 📸 Demo
 
-![screenshot](demo_screenshot.png) <!-- Replace with your own screenshot -->
+<img width="1920" height="864" alt="Screenshot (46)" src="https://github.com/user-attachments/assets/3155c855-7629-4bde-b316-fdb6bbbd6c38" />
+
 
 ---
 
